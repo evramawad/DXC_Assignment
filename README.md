@@ -17,3 +17,5 @@ Creates ALB deployed in public subnet 1 & 2 and forward traffic to ec2 instance 
 
 - RDS.yaml
 Creates MySql database in private subnet 3.
+
+https://github.com/awslabs/aws-instance-scheduler
