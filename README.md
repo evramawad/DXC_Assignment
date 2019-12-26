@@ -1,4 +1,4 @@
-DXC Assignment
+# DXC Assignment
 
 - VPC.yaml: 
 Creates 2 public subnets, 3 private subnets, route tables, IGW and NAT instance deployed in public subnet 1 and allow resources in private subnets to access internet.
