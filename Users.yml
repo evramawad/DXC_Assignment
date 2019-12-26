@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: A Stack for deploying VPC resources.
+Parameters:
+  DevUser:
+    Description: "Username of Dev. User"
+    Type: String
+    Default: Tom
+  TestUser:
+    Description: "Username of Test User"
+    Type: String
+    Default: Alex
+  DevPassword:
+    Description: "Password of Test User"
+    Type: String
+    MinLength: '8'
+    NoEcho: 'true'
+  TestPassword:
+    Description: "Password of Test User"
+    Type: String
+    MinLength: '8'
+    NoEcho: 'true'
+Resources:
+  Dev:
+    Type: AWS::IAM::User
+    Properties:
+      LoginProfile:
+        Password: !Ref 'DevPassword'
+      UserName: !Ref 'DevUser'
+  Test:
+    Type: AWS::IAM::User
+    Properties:
+      LoginProfile:
+        Password: !Ref 'TestPassword'
+      UserName: !Ref 'TestUser'
+  DevPolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2RDSAdminPolicy
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: ['ec2:StartInstances', 'ec2:StopInstances', 'rds:StartDBInstance','rds:StopDBInstance'] 
+          Resource: '*'
+      Users: [!Ref 'Dev']
+  TestPolicies:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2RDSReadPolicy
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Action: ['ec2:DescribeTags', 'ec2:DescribeVpnConnections', 'ec2:GetEbsEncryptionByDefault', 'ec2:GetCapacityReservationUsage', 'ec2:DescribeVolumesModifications', 'ec2:GetHostReservationPurchasePreview', 'ec2:DescribeFastSnapshotRestores', 'ec2:GetConsoleScreenshot', 'ec2:GetReservedInstancesExchangeQuote', 'ec2:GetConsoleOutput', 'ec2:GetPasswordData', 'ec2:GetLaunchTemplateData', 'rds:ListTagsForResource', 'ec2:DescribeScheduledInstances', 'ec2:DescribeScheduledInstanceAvailability', 'rds:DownloadDBLogFilePortion', 'rds:DescribeDBClusterSnapshots', 'ec2:GetEbsDefaultKmsKeyId', 'rds:DownloadCompleteDBLogFile', 'ec2:DescribeElasticGpus']
+          Resource: '*'
+      Users: [!Ref 'Test']

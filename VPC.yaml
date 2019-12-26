@@ -1,0 +1,220 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: A Stack for deploying VPC resources.
+Parameters:
+  PrivateSubnetThreeCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet 3 in the first Availability Zone
+    Type: String
+    Default: 10.0.4.0/24
+  PrivateSubnetTwoCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet 2 in the first Availability Zone
+    Type: String
+    Default: 10.0.3.0/24
+  PrivateSubnetOneCIDR:
+    Description: Please enter the IP range (CIDR notation) for the private subnet 1 in the first Availability Zone
+    Type: String
+    Default: 10.0.2.0/24
+  PublicSubnetTwoCIDR:
+    Type: String
+    Description: CIDR/IP range for the public subnet 2
+    Default: 10.0.1.0/24    
+  PublicSubnetOneCIDR:
+    Type: String
+    Description: CIDR/IP range for the public subnet 1
+    Default: 10.0.0.0/24    
+  VpcCIDR:
+    Type: String
+    Description: CIDR/IP range for the VPC
+    Default: 10.0.0.0/16
+Mappings:
+  AmazonLinuxAMI:
+    us-east-1:
+      AMI: ami-04681a1dbd79675a5    # N Virginia
+    us-east-2:
+      AMI: ami-0cf31d971a3ca20d6    # Ohio     
+    us-west-1:
+      AMI: ami-0782017a917e973e7    # N California
+    us-west-2:
+      AMI: ami-6cd6f714             # Oregon
+    eu-west-1:
+      AMI: ami-0bdb1d6c15a40392c    # Ireland
+    eu-central-1:
+      AMI: ami-0f5dbc86dd9cbf7a8    # Frankfurt
+    sa-east-1:
+      AMI: ami-0ad7b0031d41ed4b9    # Sao Paulo
+    ap-southeast-1:
+      AMI: ami-01da99628f381e50a    # Singapore
+    ap-southeast-2:
+      AMI: ami-00e17d1165b9dd3ec    # Sydney
+    ap-northeast-1:
+      AMI: ami-08847abae18baa040    # Tokyo
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: !Ref 'VpcCIDR'
+  PublicSubnetOne:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+         Fn::Select:
+         - 0
+         - Fn::GetAZs: {Ref: 'AWS::Region'}
+      VpcId: !Ref 'VPC'
+      CidrBlock: !Ref 'PublicSubnetOneCIDR'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Public Subnet One (AZ1)
+  PublicSubnetTwo:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+         Fn::Select:
+         - 1
+         - Fn::GetAZs: {Ref: 'AWS::Region'}
+      VpcId: !Ref 'VPC'
+      CidrBlock: !Ref 'PublicSubnetTwoCIDR'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Public Subnet Two (AZ2)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetOneCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet One (AZ1)
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetTwoCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet Two (AZ2)
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 2, !GetAZs  '' ]
+      CidrBlock: !Ref PrivateSubnetThreeCIDR
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: Private Subnet Three (AZ3)
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachement:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref 'VPC'
+      InternetGatewayId: !Ref 'InternetGateway'
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref 'VPC'
+  PublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref 'PublicRouteTable'
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref 'InternetGateway'
+  PublicSubnetOneRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetOne
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnetTwoRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnetTwo
+      RouteTableId: !Ref PublicRouteTable
+  NATInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap [ AmazonLinuxAMI, !Ref "AWS::Region", AMI]  
+      InstanceType: t2.small                          
+      NetworkInterfaces:
+      - DeviceIndex: '0'
+        SubnetId: !Ref PublicSubnetOne                  
+        AssociatePublicIpAddress: true                
+        GroupSet: [!Ref NATSecurityGroup]             
+      SourceDestCheck: false  
+      Tags:
+      - Key: Name
+        Value: !Sub NAT-${AWS::StackName}
+      UserData:      
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum -y update
+          yum install -y aws-cfn-bootstrap
+          echo 1 > /proc/sys/net/ipv4/ip_forward
+          echo 0 > /proc/sys/net/ipv4/conf/eth0/send_redirects
+          /sbin/iptables -t nat -A POSTROUTING -o eth0 -s 0.0.0.0/0 -j MASQUERADE
+          /sbin/iptables-save > /etc/sysconfig/iptables
+          mkdir -p /etc/sysctl.d/
+          cat << NatConfFileMarker > /etc/sysctl.d/nat.conf
+          net.ipv4.ip_forward = 1
+          net.ipv4.conf.eth0.send_redirects = 0
+          NatConfFileMarker
+          /opt/aws/bin/cfn-signal -e 0 --resource NATInstance --stack ${AWS::StackName} --region ${AWS::Region}
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT5M
+  NATSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub NATSecurityGroup-${AWS::StackName}
+      GroupDescription: Enable internal access to the NAT device
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '1024'
+        CidrIp: !Ref VpcCIDR
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: udp
+        FromPort: '0'
+        ToPort: '65535'
+        CidrIp: 0.0.0.0/0
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: Private        
+  PrivateRoute1:            
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      InstanceId:  !Ref NATInstance
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+  PrivateSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable

@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Sentia Technical Assessment. RDS MySQL DB for Wordpress application with multi AZ.
+Parameters:
+    VpcId:
+      Type : AWS::EC2::VPC::Id
+      Description : 'VpcId of your existing Virtual Private Cloud (VPC)'
+
+    Subnets:
+      Type: List<AWS::EC2::Subnet::Id>
+      Description: 'The list of SubnetIds, for at least two Availability Zones in the region in your Virtual Private Cloud (VPC)'
+
+    DatabaseName:
+      Default: "Mysql"
+      Description: The database name
+      Type: String
+
+    DatabaseInstanceType:
+        Default: db.t2.micro
+        AllowedValues:
+            - db.t2.micro
+            - db.t2.small
+            - db.t2.medium
+            - db.t2.large
+            - db.t2.xlarge
+            - db.t2.2xlarge
+            - db.r4.large
+            - db.r4.xlarge
+            - db.r4.2xlarge
+            - db.r4.4xlarge
+            - db.r4.8xlarge
+            - db.r4.16xlarge
+            - db.m4.large
+            - db.m4.2xlarge
+            - db.m4.4xlarge
+            - db.m4.10xlarge
+            - db.m4.16xlarge
+        Description: "The instance type to use for the database."
+        Type: String
+    
+    DatabasePassword:
+        Description: The database admin account password (More than 8 digits).
+        MinLength: '8'
+        NoEcho: 'true'
+        Type: String
+    
+    DatabaseUsername:
+        Default: "admin"
+        AllowedPattern: "[a-zA-Z0-9]+"
+        ConstraintDescription: must contain only alphanumeric characters.
+        Description: The database admin account user name.
+        Type: String
+    
+    AllocatedStorage:
+        Default: 20
+        Description: Storage to allocate in GB (Default "20")
+        Type: Number
+        MinValue: 20
+        MaxValue: 16384
+        ConstraintDescription: Allocated storage size must be in range 20-16384 GB
+    MultiAZ:
+        Description: Multi-AZ master database
+        Type: String
+        Default: 'false'
+        AllowedValues: ['true', 'false']
+        ConstraintDescription: must be true or false. 
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                default: Database Configuration
+              Parameters:
+                - DatabaseInstanceType
+                - DatabaseName
+                - DatabaseUsername
+                - DatabasePassword
+        ParameterLabels:
+            DatabaseName:
+              default: Database name
+            DatabaseInstanceType:
+                default: Database Instance Type
+            DatabasePassword:
+                default: Database Password
+            DatabaseUsername:
+                default: Database Username
+
+Resources:
+    VPCSecurityGroup:
+        Type: AWS::EC2::SecurityGroup
+        Properties:
+           GroupDescription: 'Security group for RDS DB Instance.'
+           VpcId: !Ref VpcId
+    DatabaseSubnetGroup:
+        Type: AWS::RDS::DBSubnetGroup
+        Properties:
+            DBSubnetGroupDescription: CloudFormation managed DB subnet group.
+            SubnetIds: !Ref Subnets
+
+    ParameterGroup:
+        Type: "AWS::RDS::DBParameterGroup"
+        Properties: 
+            Description: Wordpress DB parameter group 
+            Family: MySQL5.7
+
+    DatabaseInstance:
+        Type: AWS::RDS::DBInstance
+        Properties:
+            Engine: mysql
+            EngineVersion: 5.7.19
+            DBInstanceClass:
+                Ref: DatabaseInstanceType
+            DBSubnetGroupName:
+                Ref: DatabaseSubnetGroup    
+            DBParameterGroupName: !Ref ParameterGroup
+            PubliclyAccessible: "true"
+            StorageType: "gp2"
+            AllocatedStorage: !Ref AllocatedStorage
+            BackupRetentionPeriod: 35
+            DBInstanceIdentifier: !Ref DatabaseName
+            MasterUsername:
+              Ref: DatabaseUsername
+            MasterUserPassword:
+              Ref: DatabasePassword
+            PreferredBackupWindow: 02:00-03:00
+            PreferredMaintenanceWindow: mon:03:00-mon:04:00
+            DBSubnetGroupName:
+                Ref: DatabaseSubnetGroup
+            VPCSecurityGroups:
+                - Ref: VPCSecurityGroup
+            MultiAZ: !Ref 'MultiAZ'
+
+Outputs:
+    DatabaseEndpoint: 
+        Description: The database address
+        Value: !GetAtt DatabaseInstance.Endpoint.Address
+    
+    DatabasePort:
+        Description: The database port
+        Value: !GetAtt DatabaseInstance.Endpoint.Port
