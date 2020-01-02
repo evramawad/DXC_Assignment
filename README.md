@@ -11,11 +11,11 @@ Creates 1 bastion host deployed in public subnet 1 and its security group with o
 
 - Tomcat-ALB.yaml: 
 Creates ALB deployed in public subnet 1 & 2 and forward traffic to tomcat instance in private subnet 1 on port 8080 and there is cloudwatch alarm which reboot the instance in case of health check error.
-Tomcat URL: http://tomca-elast-1fhmwpnqp8yh1-1583348721.us-west-2.elb.amazonaws.com/
+Tomcat URL: http://tomca-elast-1ujc5ey0bnic1-1496792563.us-west-2.elb.amazonaws.com/
 
 - Jenkins-ALB.yaml: 
 Creates ALB deployed in public subnet 1 & 2 and forward traffic to jenkins instance (deployed on tomcat) in private subnet 2 on port 8080 and there is cloudwatch alarm which reboot the instance in case of health check error.
-Jenkins URL: http://jenki-elast-js9wxy2get8m-28712356.us-west-2.elb.amazonaws.com/jenkins
+Jenkins URL: http://jenki-elast-1529uqcn37s5i-118074820.us-west-2.elb.amazonaws.com/jenkins/
 
 - RDS.yaml: 
 Creates RDS MySql database in private subnet 3.
